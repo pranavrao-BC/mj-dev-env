@@ -35,11 +35,16 @@
                 _MJ_SCRIPT_DIR="$PWD/scripts"
               fi
 
-              # Register commands
-              mj-refresh()  { bash "$_MJ_SCRIPT_DIR/refresh.sh" "$@"; }
-              mj-nuke()     { bash "$_MJ_SCRIPT_DIR/nuke.sh" "$@"; }
-              mj-catch-up() { bash "$_MJ_SCRIPT_DIR/catchup.sh" "$@"; }
-              export -f mj-refresh mj-nuke mj-catch-up
+              # Register commands — "|| true" ensures a script failure/abort
+              # never kills the interactive shell
+              mj-refresh()  { bash "$_MJ_SCRIPT_DIR/refresh.sh" "$@" || true; }
+              mj-nuke()     { bash "$_MJ_SCRIPT_DIR/nuke.sh" "$@" || true; }
+              mj-catch-up() { bash "$_MJ_SCRIPT_DIR/catchup.sh" "$@" || true; }
+              mj-review()   { bash "$_MJ_SCRIPT_DIR/review.sh" "$@" || true; }
+              mj-start()    { bash "$_MJ_SCRIPT_DIR/start.sh" "$@" || true; }
+              mj-status()   { bash "$_MJ_SCRIPT_DIR/status.sh" "$@" || true; }
+              mj-help()     { bash "$_MJ_SCRIPT_DIR/help.sh" "$@" || true; }
+              export -f mj-refresh mj-nuke mj-catch-up mj-review mj-start mj-status mj-help
 
               source "$_MJ_SCRIPT_DIR/bootstrap.sh"
             '';

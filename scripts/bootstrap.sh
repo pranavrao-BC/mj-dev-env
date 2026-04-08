@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # MJ Dev Environment — shellHook orchestrator.
 # Runs on every `nix develop` entry. Fast path (<0.5s) when already set up.
-set -euo pipefail
+#
+# NOTE: This file is sourced (not executed), so we must NOT use set -euo pipefail
+# here — it would leak into the user's interactive shell and cause any non-zero
+# return code to kill the session.
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
@@ -123,7 +126,7 @@ if [ -d "$MJ_REPO_DIR/Demos/AssociationDB" ] && [ -t 0 ]; then
     read -rp "$(echo -e "${CYAN}[?]${NC}") Install Association demo data? (y/N) " answer
     if [[ "$answer" =~ ^[Yy]$ ]]; then
       demo_dir="$MJ_REPO_DIR/Demos/AssociationDB"
-      [ -f "$demo_dir/.env" ] || cat > "$demo_dir/.env" <<DEMOENV
+      cat > "$demo_dir/.env" <<DEMOENV
 DB_SERVER=localhost
 DB_NAME=MJ_Local
 DB_USER=$CODEGEN_USER

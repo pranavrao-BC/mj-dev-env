@@ -71,7 +71,7 @@ if [ -d "$MJ_REPO_DIR" ]; then
     echo ""
     read -rp "$(echo -e "${CYAN}[?]${NC}") Install Association demo data? (y/N) " answer
     if [[ "$answer" =~ ^[Yy]$ ]]; then
-      [ -f "$demo_dir/.env" ] || cat > "$demo_dir/.env" <<DEMOENV
+      cat > "$demo_dir/.env" <<DEMOENV
 DB_SERVER=localhost
 DB_NAME=MJ_Local
 DB_USER=$CODEGEN_USER

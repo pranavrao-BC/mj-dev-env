@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
+echo ""
+echo -e "  ${CYAN}MemberJunction Dev Environment${NC}"
+echo ""
+echo -e "  ${CYAN}mj-start${NC} ${DIM}[api|explorer]${NC}         Start API, Explorer, or both"
+echo -e "  ${CYAN}mj-refresh${NC} ${DIM}[branch] [--fresh] [--skip-build]${NC}"
+echo -e "                                    Pull latest next, migrate, build."
+echo -e "                                    ${DIM}--fresh nukes DB too.${NC}"
+echo -e "  ${CYAN}mj-catch-up${NC} ${DIM}[--skip-build]${NC}       Merge latest next into current branch"
+echo -e "  ${CYAN}mj-review${NC} ${DIM}<pr#|branch> [--skip-build]${NC}"
+echo -e "                                    Check out a PR to test. ${DIM}--done to go back.${NC}"
+echo -e "  ${CYAN}mj-nuke${NC}                          Drop and rebuild database from scratch"
+echo -e "  ${CYAN}mj-status${NC}                        Check what's running and what's not"
+echo -e "  ${CYAN}mj-help${NC}                          This help message"
+echo ""

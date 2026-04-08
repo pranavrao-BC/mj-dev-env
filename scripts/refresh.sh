@@ -43,7 +43,8 @@ else
 fi
 echo ""
 
-cd "$MJ_REPO_DIR"
+pushd "$MJ_REPO_DIR" >/dev/null
+trap 'popd >/dev/null 2>&1' EXIT
 
 # ── Step 1: Check for dirty working tree ─────────────────────────────
 if [ -n "$(git status --porcelain)" ]; then
@@ -129,7 +130,7 @@ if [ "$FRESH" = true ] && [ -d "$MJ_REPO_DIR/Demos/AssociationDB" ] && [ -t 0 ];
   read -rp "$(echo -e "${CYAN}[?]${NC}") Install Association demo data? (y/N) " answer
   if [[ "$answer" =~ ^[Yy]$ ]]; then
     demo_dir="$MJ_REPO_DIR/Demos/AssociationDB"
-    [ -f "$demo_dir/.env" ] || cat > "$demo_dir/.env" <<DEMOENV
+    cat > "$demo_dir/.env" <<DEMOENV
 DB_SERVER=localhost
 DB_NAME=MJ_Local
 DB_USER=$CODEGEN_USER

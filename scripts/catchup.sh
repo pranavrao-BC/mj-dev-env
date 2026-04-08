@@ -25,7 +25,8 @@ done
 require_docker || exit 1
 require_repo   || exit 1
 
-cd "$MJ_REPO_DIR"
+pushd "$MJ_REPO_DIR" >/dev/null
+trap 'popd >/dev/null 2>&1' EXIT
 
 CURRENT_BRANCH=$(git branch --show-current)
 

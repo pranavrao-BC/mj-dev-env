@@ -26,6 +26,31 @@ First run takes 5-10 minutes. It:
 
 Every subsequent shell entry takes <1 second.
 
+## Auto-activate with direnv
+
+Skip typing `nix develop` every time. direnv activates the shell automatically when you `cd` into the project.
+
+1. Install direnv:
+
+```bash
+brew install direnv
+```
+
+2. Add the hook to your shell (e.g. `~/.zshrc`):
+
+```bash
+eval "$(direnv hook zsh)"
+```
+
+3. Allow direnv in this project:
+
+```bash
+cd ~/Projects/mj-dev-env
+direnv allow
+```
+
+Now the dev shell activates automatically whenever you `cd` in, and deactivates when you leave.
+
 ## Commands
 
 ### `mj-refresh`
@@ -84,6 +109,30 @@ mj-nuke
 - Something went wrong and you want a clean slate without touching code
 
 Asks you to type "nuke" to confirm. Your `.env` and code are not affected.
+
+### `mj-review`
+
+Check out a PR, install deps, migrate, build — ready to test.
+
+```bash
+# By PR number
+mj-review 142
+
+# By branch name
+mj-review ian-file-artifact-pr-fixes
+
+# Skip the build
+mj-review 142 --skip-build
+
+# Done reviewing, go back to your branch
+mj-review --done
+```
+
+**When to use:**
+- Someone asks you to review/test their PR
+- You want to try a branch before it merges
+
+Automatically stashes your uncommitted changes and restores them when you `--done`.
 
 ## Workflows
 
