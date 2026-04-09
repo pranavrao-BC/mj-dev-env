@@ -84,13 +84,13 @@ jobs:
       # ── SQL Server ────────────────────────────────────────
       - name: Start SQL Server
         run: |
-          docker run --platform linux/amd64 \
+          docker run \
             -e "ACCEPT_EULA=Y" \
             -e "MSSQL_SA_PASSWORD=MJDevSA@Strong1!" \
             -p 1433:1433 \
             -v "$HOME/.mj-snapshots:/snapshots" \
             -d --name mj-sqlserver \
-            mcr.microsoft.com/mssql/server:2022-latest
+            mcr.microsoft.com/mssql/server:2022-CU18-ubuntu-22.04
 
       - name: Wait for SQL Server
         run: |
