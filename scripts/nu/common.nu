@@ -184,29 +184,3 @@ export def run-init-db [] {
     error make { msg: $"init-db.sql failed: ($result.stderr)" }
   }
 }
-
-# ── GitHub helpers ──────────────────────────────────────────────────
-export def require-gh [] {
-  if (which gh | is-empty) {
-    err "GitHub CLI (gh) not found"
-    print $"     (ansi attr_dimmed)Install: brew install gh(ansi reset)"
-    error make { msg: "gh not found" }
-  }
-  let result = (^gh auth status | complete)
-  if $result.exit_code != 0 {
-    err "Not authenticated with GitHub"
-    print $"     (ansi attr_dimmed)Run: gh auth login(ansi reset)"
-    error make { msg: "gh not authenticated" }
-  }
-}
-
-export def latest-remote-snapshot [] : nothing -> record {
-  let result = try { ^gh release list --limit 50 | complete } catch { { exit_code: 1, stdout: "" } }
-  if $result.exit_code != 0 { return {} }
-  let match = ($result.stdout | lines | where { |line| $line | str contains "snapshot/" } | first?)
-  if $match == null { return {} }
-  let tag = ($match | split row "\t" | where { |col| $col | str starts-with "snapshot/" } | first?)
-  if $tag == null { return {} }
-  let name = ($tag | str replace "snapshot/" "")
-  { name: $name, tag: $tag }
-}

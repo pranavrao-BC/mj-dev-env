@@ -89,41 +89,7 @@ def main [] {
     if $has_schema == "yes" {
       info "MJ schema"
     } else {
-      mut restored_snapshot = false
-
-      # Check if a shared snapshot can shortcut the migration
-      let local_snaps = (glob ($"(snapshot-dir)/*.bak"))
-      if ($local_snaps | is-empty) and (which gh | is-not-empty) {
-        let gh_auth = (^gh auth status | complete)
-        if $gh_auth.exit_code == 0 {
-          let remote = (latest-remote-snapshot)
-          if not ($remote | is-empty) {
-            print ""
-            let answer = (input $"  (ansi cyan)?(ansi reset) A shared snapshot '(ansi attr_bold)($remote.name)(ansi reset)' is available. Download and restore? (ansi attr_dimmed)\(Much faster than migrations\) \(y/N\)(ansi reset) ")
-            if ($answer | str downcase) == "y" {
-              step "Downloading snapshot..."
-              let dl = (^gh release download $remote.tag --pattern "*.bak" --dir (snapshot-dir) --clobber | complete)
-              if $dl.exit_code == 0 {
-                let bak_container = $"($SNAPSHOT_MOUNT)/($remote.name).bak"
-                step "Restoring database from snapshot..."
-                sql-as-sa -Q "IF DB_ID('MJ_Local') IS NOT NULL BEGIN ALTER DATABASE [MJ_Local] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; END" | ignore
-                let restore = (sql-as-sa -Q $"RESTORE DATABASE [MJ_Local] FROM DISK = '($bak_container)' WITH REPLACE, RECOVERY")
-                if $restore.exit_code == 0 {
-                  run-init-db
-                  info "Snapshot restored"
-                  $restored_snapshot = true
-                } else {
-                  warn $"Snapshot restore failed, falling back to migrations"
-                }
-              } else {
-                warn $"Download failed, falling back to migrations"
-              }
-            }
-          }
-        }
-      }
-
-      step $"Running migrations (ansi attr_dimmed)\(($restored_snapshot | if $in { 'catching up from snapshot' } else { '5-15 min first time' })\)(ansi reset)"
+      step $"Running migrations (ansi attr_dimmed)\(5-15 min first time\)(ansi reset)"
       cd $repo
       ^mj migrate
       info "Migrations complete"
