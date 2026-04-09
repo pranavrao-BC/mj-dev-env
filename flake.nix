@@ -37,6 +37,9 @@
               fi
               export MJ_FLAKE_ROOT="$(dirname "$_MJ_SCRIPT_DIR")"
 
+              # MJ CLI installed to ~/.mj-cli to avoid conflicting with Nix store
+              export PATH="$HOME/.mj-cli/bin:$PATH"
+
               # Register commands — "|| true" ensures a script failure/abort
               # never kills the interactive shell
               mj-refresh()  { nu "$_MJ_SCRIPT_DIR/nu/refresh.nu" "$@" || true; }

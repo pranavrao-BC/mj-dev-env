@@ -45,14 +45,6 @@ def main [] {
       err $"Database MJ_Local              (ansi attr_dimmed)missing(ansi reset)"
     }
 
-    let has_demo = try {
-      sql-query "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'AssociationDemo') THEN 'yes' ELSE 'no' END"
-    } catch { "no" }
-    if $has_demo == "yes" {
-      info $"Demo data                      (ansi attr_dimmed)installed(ansi reset)"
-    } else {
-      print $"  (ansi attr_dimmed)·(ansi reset) Demo data                      (ansi attr_dimmed)not installed(ansi reset)"
-    }
   }
 
   print ""

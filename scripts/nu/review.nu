@@ -44,6 +44,14 @@ def main [
     $current | save -f $breadcrumb
   }
 
+  # Check for merge conflicts
+  let unmerged = (^git diff --name-only --diff-filter=U | complete | get stdout | str trim)
+  if ($unmerged | is-not-empty) {
+    err "You have unresolved merge conflicts. Resolve them first."
+    rm -f $breadcrumb
+    exit 1
+  }
+
   # Stash if dirty
   let dirty = (^git status --porcelain | complete | get stdout | str trim)
   if ($dirty | is-not-empty) {
