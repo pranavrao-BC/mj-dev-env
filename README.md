@@ -157,6 +157,17 @@ mj-snapshot restore clean-5.24    # restore + catch up migrations
 mj-snapshot delete clean-5.24     # remove a snapshot
 ```
 
+**Sharing snapshots with your team:**
+
+```bash
+mj-snapshot publish clean-5.24    # upload to GitHub Release
+mj-snapshot download              # download the latest shared snapshot
+mj-snapshot download clean-5.24   # download a specific one
+mj-snapshot restore clean-5.24    # restore it
+```
+
+On first-time bootstrap, if no local snapshots exist, you'll be offered the latest shared snapshot automatically.
+
 **When to use:**
 - After a clean setup, save a baseline so you never wait for full migrations again
 - Before risky DB changes, save a checkpoint

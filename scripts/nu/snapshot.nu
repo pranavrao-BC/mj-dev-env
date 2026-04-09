@@ -122,6 +122,96 @@ def "main delete" [
   info $"Deleted snapshot: (ansi attr_bold)($name)(ansi reset)"
 }
 
+def "main publish" [
+  name: string  # Name of snapshot to publish as a GitHub Release
+] {
+  let bak_path = ((snapshot-dir) | path join $"($name).bak")
+  if not ($bak_path | path exists) {
+    err $"Snapshot (ansi attr_bold)($name)(ansi reset) not found locally"
+    print $"     (ansi attr_dimmed)Run (ansi reset)mj-snapshot save ($name)(ansi attr_dimmed) first(ansi reset)"
+    exit 1
+  }
+
+  require-gh
+
+  let tag = $"snapshot/($name)"
+  banner $"Publishing snapshot: ($name)"
+  let start = (date now)
+
+  # Check if release already exists
+  let existing = (^gh release view $tag | complete)
+  if $existing.exit_code == 0 {
+    let answer = (input $"  (ansi cyan)?(ansi reset) Release (ansi attr_bold)($tag)(ansi reset) already exists. Replace? (ansi attr_dimmed)\(y/N\)(ansi reset) ")
+    if ($answer | str downcase) != "y" {
+      info "Aborted"
+      return
+    }
+    step "Removing old release..."
+    ^gh release delete $tag --yes | complete | ignore
+    ^git push --delete origin $tag | complete | ignore
+  }
+
+  step "Uploading snapshot..."
+  let result = (^gh release create $tag $bak_path --title $"Snapshot: ($name)" --notes $"Database snapshot `($name)` uploaded from local dev environment." | complete)
+  if $result.exit_code != 0 {
+    err $"Publish failed: ($result.stderr)"
+    exit 1
+  }
+
+  let size = try { ls $bak_path | get 0.size } catch { "?" }
+  let elapsed = ((date now) - $start | format duration sec)
+
+  info $"Published: (ansi attr_bold)($tag)(ansi reset) (ansi attr_dimmed)\(($size), ($elapsed)\)(ansi reset)"
+}
+
+def "main download" [
+  name?: string  # Name of snapshot to download (omit for latest)
+] {
+  require-gh
+  mkdir (snapshot-dir)
+
+  let resolved_name = if $name != null {
+    $name
+  } else {
+    step "Finding latest shared snapshot..."
+    let snap = (latest-remote-snapshot)
+    if ($snap | is-empty) {
+      err "No shared snapshots found"
+      exit 1
+    }
+    info $"Latest: (ansi attr_bold)($snap.name)(ansi reset)"
+    $snap.name
+  }
+
+  let tag = $"snapshot/($resolved_name)"
+  let bak_path = ((snapshot-dir) | path join $"($resolved_name).bak")
+
+  banner $"Downloading snapshot: ($resolved_name)"
+  let start = (date now)
+
+  # Check if local file already exists
+  if ($bak_path | path exists) {
+    let answer = (input $"  (ansi cyan)?(ansi reset) Local snapshot (ansi attr_bold)($resolved_name)(ansi reset) already exists. Overwrite? (ansi attr_dimmed)\(y/N\)(ansi reset) ")
+    if ($answer | str downcase) != "y" {
+      info "Aborted"
+      return
+    }
+  }
+
+  step "Downloading..."
+  let result = (^gh release download $tag --pattern "*.bak" --dir (snapshot-dir) --clobber | complete)
+  if $result.exit_code != 0 {
+    err $"Download failed: ($result.stderr)"
+    exit 1
+  }
+
+  let size = try { ls $bak_path | get 0.size } catch { "?" }
+  let elapsed = ((date now) - $start | format duration sec)
+
+  info $"Downloaded: (ansi attr_bold)($resolved_name)(ansi reset) (ansi attr_dimmed)\(($size), ($elapsed)\)(ansi reset)"
+  print $"  (ansi attr_dimmed)Restore with: (ansi reset)mj-snapshot restore ($resolved_name)"
+}
+
 def main [] {
   main list
 }
