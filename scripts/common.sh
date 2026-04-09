@@ -12,6 +12,8 @@ SA_PASSWORD="MJDevSA@Strong1!"
 SQL_PORT=1433
 MJ_REPO_DIR="${MJ_REPO_DIR:-$HOME/Projects/MJ/MJ}"
 BOOTSTRAP_MARKER="$FLAKE_ROOT/.bootstrap-ok"
+SNAPSHOT_DIR="$HOME/.mj-snapshots"
+SNAPSHOT_MOUNT="/snapshots"
 
 # DB credentials (must match templates/.env.template and sql/init-db.sql)
 MJ_CLI_PREFIX="$HOME/.mj-cli"
@@ -142,16 +144,35 @@ recreate_container() {
     docker rm -f "$CONTAINER_NAME" >/dev/null
     spin_stop
   fi
+  # Ensure snapshot directory exists on host
+  mkdir -p "$SNAPSHOT_DIR"
   spin_start "Creating SQL Server container..."
   docker run --platform linux/amd64 \
     -e "ACCEPT_EULA=Y" \
     -e "MSSQL_SA_PASSWORD=$SA_PASSWORD" \
     -p "$SQL_PORT:1433" \
+    -v "$SNAPSHOT_DIR:$SNAPSHOT_MOUNT" \
     -d \
     --name "$CONTAINER_NAME" \
     "$SQL_IMAGE" >/dev/null 2>&1
   spin_stop
   info "SQL Server container created"
+}
+
+# Check if container has the snapshot volume mounted
+container_has_snapshots() {
+  docker inspect "$CONTAINER_NAME" --format '{{range .Mounts}}{{.Destination}}{{end}}' 2>/dev/null | grep -q "$SNAPSHOT_MOUNT"
+}
+
+# Ensure container has snapshot mount — recreate if needed
+ensure_snapshot_mount() {
+  if ! container_has_snapshots; then
+    warn "Container missing snapshot volume — recreating..."
+    recreate_container
+    wait_for_sql 30 || { err "SQL Server not ready"; return 1; }
+    # Re-run init since we have a fresh container
+    sql_as_sa -i "$SCRIPT_DIR/sql/init-db.sql" >/dev/null
+  fi
 }
 
 wait_for_sql() {

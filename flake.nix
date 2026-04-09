@@ -44,7 +44,8 @@
               mj-start()    { bash "$_MJ_SCRIPT_DIR/start.sh" "$@" || true; }
               mj-status()   { bash "$_MJ_SCRIPT_DIR/status.sh" "$@" || true; }
               mj-help()     { bash "$_MJ_SCRIPT_DIR/help.sh" "$@" || true; }
-              export -f mj-refresh mj-nuke mj-catch-up mj-review mj-start mj-status mj-help
+              mj-snapshot() { bash "$_MJ_SCRIPT_DIR/snapshot.sh" "$@" || true; }
+              export -f mj-refresh mj-nuke mj-catch-up mj-review mj-start mj-status mj-help mj-snapshot
 
               source "$_MJ_SCRIPT_DIR/bootstrap.sh"
             '';

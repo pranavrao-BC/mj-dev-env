@@ -94,18 +94,46 @@ fi
 
 # ── Step 4: Nuke DB + container (--fresh only) ──────────────────────
 if [ "$FRESH" = true ]; then
-  step "Removing SQL Server container..."
+  # Offer snapshot restore if available
+  USE_SNAPSHOT=false
+  if [ -t 0 ] && compgen -G "$SNAPSHOT_DIR/*.bak" >/dev/null 2>&1; then
+    echo ""
+    echo -e "  ${DIM}Available snapshots:${NC}"
+    for f in "$SNAPSHOT_DIR"/*.bak; do
+      sn=$(basename "$f" .bak)
+      ss=$(du -h "$f" | cut -f1 | tr -d '[:space:]')
+      echo -e "    ${GREEN}●${NC} ${BOLD}${sn}${NC}  ${DIM}${ss}${NC}"
+    done
+    echo ""
+    read -rp "$(echo -e "  ${CYAN}?${NC} Restore from snapshot? Enter name or press Enter to skip: ")" snap_name
+    if [ -n "$snap_name" ] && [ -f "$SNAPSHOT_DIR/${snap_name}.bak" ]; then
+      USE_SNAPSHOT=true
+    elif [ -n "$snap_name" ]; then
+      warn "Snapshot '${snap_name}' not found — running full migration"
+    fi
+  fi
+
   recreate_container
-  step "Waiting for SQL Server..."
   if ! wait_for_sql 30; then
     err "SQL Server not ready after 60s"
     exit 1
   fi
   info "SQL Server is ready"
 
-  step "Creating database, logins, users..."
-  sql_as_sa -i "$SCRIPT_DIR/sql/init-db.sql" >/dev/null
-  info "Fresh database ready"
+  if [ "$USE_SNAPSHOT" = true ]; then
+    spin_start "Restoring from snapshot ${BOLD}${snap_name}${NC}..."
+    sql_as_sa -Q "
+      RESTORE DATABASE [MJ_Local]
+      FROM DISK = '${SNAPSHOT_MOUNT}/${snap_name}.bak'
+      WITH REPLACE, RECOVERY
+    " >/dev/null 2>&1
+    spin_stop
+    info "Restored from snapshot"
+    sql_as_sa -i "$SCRIPT_DIR/sql/init-db.sql" >/dev/null
+  else
+    sql_as_sa -i "$SCRIPT_DIR/sql/init-db.sql" >/dev/null
+    info "Fresh database ready"
+  fi
 fi
 
 # ── Step 5: Update MJ CLI ───────────────────────────────────────────
