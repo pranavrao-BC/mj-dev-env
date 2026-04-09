@@ -92,6 +92,8 @@ jobs:
       - name: Start SQL Server
         run: |
           docker rm -f mj-sqlserver 2>/dev/null || true
+          mkdir -p "$HOME/.mj-snapshots"
+          chmod 777 "$HOME/.mj-snapshots"
           docker run \
             -e "ACCEPT_EULA=Y" \
             -e "MSSQL_SA_PASSWORD=MJDevSA@Strong1!" \
@@ -139,6 +141,8 @@ jobs:
       - name: Publish snapshot
         run: |
           mkdir -p "$HOME/.mj-snapshots"
+          chmod 777 "$HOME/.mj-snapshots"
+
           nix develop --command sqlcmd \
             -S localhost,1433 -U sa -P "MJDevSA@Strong1!" -C -Q \
             "BACKUP DATABASE [MJ_Local] TO DISK = '/snapshots/latest.bak' WITH COMPRESSION, INIT, FORMAT"
