@@ -20,14 +20,78 @@ CODEGEN_PASS="MJCodeGen@Dev1!"
 CONNECT_USER="MJ_Connect"
 CONNECT_PASS="MJConnect@Dev2!"
 
-# ── Colors ────────────────────────────────────────────────────────────
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; DIM='\033[2m'; NC='\033[0m'
-info()  { echo -e "${GREEN}[✓]${NC} $*"; }
-warn()  { echo -e "${YELLOW}[!]${NC} $*"; }
-err()   { echo -e "${RED}[✗]${NC} $*"; }
-step()  { echo -e "${CYAN}[→]${NC} $*"; }
+# ── Colors & Symbols ─────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; BLUE='\033[0;34m'; MAGENTA='\033[0;35m'
+DIM='\033[2m'; BOLD='\033[1m'; NC='\033[0m'
 
-# ── Helpers ───────────────────────────────────────────────────────────
+info()  { echo -e "  ${GREEN}✓${NC} $*"; }
+warn()  { echo -e "  ${YELLOW}⚠${NC} $*"; }
+err()   { echo -e "  ${RED}✗${NC} $*"; }
+step()  { echo -e "  ${CYAN}›${NC} $*"; }
+
+# ── Spinner ──────────────────────────────────────────────────────────
+_SPINNER_PID=""
+_SPINNER_FRAMES=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+
+spin_start() {
+  local msg="$1"
+  (
+    local i=0
+    while true; do
+      printf "\r  ${CYAN}%s${NC} %s" "${_SPINNER_FRAMES[$((i % ${#_SPINNER_FRAMES[@]}))]}" "$msg"
+      i=$((i + 1))
+      sleep 0.08
+    done
+  ) &
+  _SPINNER_PID=$!
+  disown "$_SPINNER_PID" 2>/dev/null
+}
+
+spin_stop() {
+  local symbol="${1:-✓}" color="${2:-$GREEN}"
+  if [ -n "$_SPINNER_PID" ]; then
+    kill "$_SPINNER_PID" 2>/dev/null
+    wait "$_SPINNER_PID" 2>/dev/null
+    _SPINNER_PID=""
+  fi
+  printf "\r\033[K"  # clear the spinner line
+}
+
+# ── Timing ───────────────────────────────────────────────────────────
+_TIMER_START=""
+timer_start() { _TIMER_START=$(date +%s); }
+timer_elapsed() {
+  local end elapsed
+  end=$(date +%s)
+  elapsed=$(( end - _TIMER_START ))
+  if [ $elapsed -lt 60 ]; then
+    echo "${elapsed}s"
+  else
+    echo "$((elapsed / 60))m $((elapsed % 60))s"
+  fi
+}
+
+# ── Box drawing ──────────────────────────────────────────────────────
+banner() {
+  local text="$1"
+  local color="${2:-$CYAN}"
+  echo ""
+  echo -e "  ${color}${BOLD}${text}${NC}"
+  echo -e "  ${DIM}$(printf '%.0s─' $(seq 1 ${#text}))${NC}"
+}
+
+success_box() {
+  echo ""
+  echo -e "  ${GREEN}${BOLD}┌─────────────────────────────────────┐${NC}"
+  while IFS= read -r line; do
+    printf "  ${GREEN}${BOLD}│${NC} %-35s ${GREEN}${BOLD}│${NC}\n" "$line"
+  done
+  echo -e "  ${GREEN}${BOLD}└─────────────────────────────────────┘${NC}"
+  echo ""
+}
+
+# ── SQL helpers ──────────────────────────────────────────────────────
 sql_as_sa() {
   sqlcmd -S "localhost,$SQL_PORT" -U sa -P "$SA_PASSWORD" -C "$@"
 }
@@ -37,7 +101,6 @@ sql_as_codegen() {
 }
 
 sql_query() {
-  # Run a query, return trimmed scalar result
   sql_as_sa -h -1 -Q "SET NOCOUNT ON; $1" 2>/dev/null | tr -d '[:space:]'
 }
 
@@ -45,37 +108,41 @@ container_state() {
   docker inspect -f '{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null || echo "missing"
 }
 
-# Ensure MJ CLI is on PATH
+# ── PATH ─────────────────────────────────────────────────────────────
 export PATH="$MJ_CLI_PREFIX/bin:$PATH"
 
+# ── Require helpers ──────────────────────────────────────────────────
 require_docker() {
   if ! command -v docker &>/dev/null; then
-    err "Docker CLI not found. Install Docker Desktop: https://www.docker.com/products/docker-desktop/"
+    err "Docker CLI not found"
+    echo -e "     ${DIM}Install Docker Desktop: https://www.docker.com/products/docker-desktop/${NC}"
     return 1
   fi
   if ! docker info &>/dev/null; then
-    err "Docker daemon is not running. Start Docker Desktop and re-enter the shell."
+    err "Docker daemon is not running"
+    echo -e "     ${DIM}Start Docker Desktop and re-enter the shell${NC}"
     return 1
   fi
 }
 
 require_repo() {
   if [ ! -d "$MJ_REPO_DIR" ]; then
-    err "MJ repo not found at $MJ_REPO_DIR"
-    err "Clone it:  git clone https://github.com/MemberJunction/MJ.git $MJ_REPO_DIR"
+    err "MJ repo not found at ${BOLD}$MJ_REPO_DIR${NC}"
+    echo -e "     ${DIM}git clone https://github.com/MemberJunction/MJ.git $MJ_REPO_DIR${NC}"
     return 1
   fi
 }
 
-# Replace the SQL Server container (handles password mismatch, version upgrade, etc.)
+# ── Container management ─────────────────────────────────────────────
 recreate_container() {
   local state
   state=$(container_state)
   if [ "$state" != "missing" ]; then
-    step "Removing old SQL Server container..."
+    spin_start "Removing old container..."
     docker rm -f "$CONTAINER_NAME" >/dev/null
+    spin_stop
   fi
-  step "Creating SQL Server container..."
+  spin_start "Creating SQL Server container..."
   docker run --platform linux/amd64 \
     -e "ACCEPT_EULA=Y" \
     -e "MSSQL_SA_PASSWORD=$SA_PASSWORD" \
@@ -83,19 +150,22 @@ recreate_container() {
     -d \
     --name "$CONTAINER_NAME" \
     "$SQL_IMAGE" >/dev/null 2>&1
+  spin_stop
   info "SQL Server container created"
 }
 
-# Wait for SQL Server to accept connections. Returns 1 on timeout.
 wait_for_sql() {
   local max="${1:-30}"
   local attempts=0
+  spin_start "Waiting for SQL Server..."
   while [ $attempts -lt "$max" ]; do
     if sql_as_sa -Q "SELECT 1" &>/dev/null; then
+      spin_stop
       return 0
     fi
     attempts=$((attempts + 1))
     sleep 2
   done
+  spin_stop
   return 1
 }

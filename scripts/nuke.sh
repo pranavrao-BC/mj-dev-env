@@ -65,6 +65,10 @@ if [ -d "$MJ_REPO_DIR" ]; then
   (cd "$MJ_REPO_DIR" && mj migrate)
   info "Migrations complete"
 
+  step "Running codegen..."
+  (cd "$MJ_REPO_DIR" && mj codegen)
+  info "Codegen complete"
+
   # ── Demo data ────────────────────────────────────────────────────
   demo_dir="$MJ_REPO_DIR/Demos/AssociationDB"
   if [ -d "$demo_dir" ] && [ -t 0 ]; then

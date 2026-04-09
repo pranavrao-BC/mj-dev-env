@@ -96,6 +96,10 @@ step "Running migrations..."
 mj migrate
 info "Migrations complete"
 
+step "Running codegen..."
+mj codegen
+info "Codegen complete"
+
 if [ "$SKIP_BUILD" = true ]; then
   warn "Skipping build (--skip-build). Run: npm run build"
 else

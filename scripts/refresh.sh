@@ -124,6 +124,11 @@ step "Running migrations..."
 mj migrate
 info "Migrations complete"
 
+# ── Step 7b: Codegen (regenerate entities/views/procs from new schema)
+step "Running codegen..."
+mj codegen
+info "Codegen complete"
+
 # ── Step 8: Demo data (--fresh only, interactive) ───────────────────
 if [ "$FRESH" = true ] && [ -d "$MJ_REPO_DIR/Demos/AssociationDB" ] && [ -t 0 ]; then
   echo ""
