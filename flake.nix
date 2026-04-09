@@ -21,6 +21,7 @@
               nodejs_24
               git
               sqlcmd
+              nushell
             ];
 
             shellHook = ''
@@ -29,22 +30,23 @@
               # Trust local Docker SQL Server's self-signed cert for all sqlcmd calls
               export SQLCMDTRUST_SERVER_CERTIFICATE=1
 
-              # Resolve script dir from the working directory (not the Nix store)
+              # Resolve script dir and export for Nushell scripts
               _MJ_SCRIPT_DIR="$(cd "$(dirname "''${BASH_SOURCE[0]:-$0}")"; git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts"
               if [ ! -d "$_MJ_SCRIPT_DIR" ]; then
                 _MJ_SCRIPT_DIR="$PWD/scripts"
               fi
+              export MJ_FLAKE_ROOT="$(dirname "$_MJ_SCRIPT_DIR")"
 
               # Register commands — "|| true" ensures a script failure/abort
               # never kills the interactive shell
-              mj-refresh()  { bash "$_MJ_SCRIPT_DIR/refresh.sh" "$@" || true; }
-              mj-nuke()     { bash "$_MJ_SCRIPT_DIR/nuke.sh" "$@" || true; }
-              mj-catch-up() { bash "$_MJ_SCRIPT_DIR/catchup.sh" "$@" || true; }
-              mj-review()   { bash "$_MJ_SCRIPT_DIR/review.sh" "$@" || true; }
-              mj-start()    { bash "$_MJ_SCRIPT_DIR/start.sh" "$@" || true; }
-              mj-status()   { bash "$_MJ_SCRIPT_DIR/status.sh" "$@" || true; }
-              mj-help()     { bash "$_MJ_SCRIPT_DIR/help.sh" "$@" || true; }
-              mj-snapshot() { bash "$_MJ_SCRIPT_DIR/snapshot.sh" "$@" || true; }
+              mj-refresh()  { nu "$_MJ_SCRIPT_DIR/nu/refresh.nu" "$@" || true; }
+              mj-nuke()     { nu "$_MJ_SCRIPT_DIR/nu/nuke.nu" "$@" || true; }
+              mj-catch-up() { nu "$_MJ_SCRIPT_DIR/nu/catchup.nu" "$@" || true; }
+              mj-review()   { nu "$_MJ_SCRIPT_DIR/nu/review.nu" "$@" || true; }
+              mj-start()    { nu "$_MJ_SCRIPT_DIR/nu/start.nu" "$@" || true; }
+              mj-status()   { nu "$_MJ_SCRIPT_DIR/nu/status.nu" "$@" || true; }
+              mj-help()     { nu "$_MJ_SCRIPT_DIR/nu/help.nu" "$@" || true; }
+              mj-snapshot() { nu "$_MJ_SCRIPT_DIR/nu/snapshot.nu" "$@" || true; }
               export -f mj-refresh mj-nuke mj-catch-up mj-review mj-start mj-status mj-help mj-snapshot
 
               source "$_MJ_SCRIPT_DIR/bootstrap.sh"
