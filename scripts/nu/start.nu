@@ -1,6 +1,17 @@
 #!/usr/bin/env nu
 use common.nu *
 
+def kill-port [port: int] {
+  let pids = (^lsof -ti $":($port)" | complete)
+  if $pids.exit_code == 0 and ($pids.stdout | str trim | is-not-empty) {
+    let pid_list = ($pids.stdout | str trim | lines)
+    for pid in $pid_list {
+      ^kill -9 ($pid | str trim | into int) | complete | ignore
+    }
+    warn $"Killed stale process on port ($port)"
+  }
+}
+
 def main [
   target?: string  # api, explorer, or omit for both
 ] {
@@ -8,6 +19,14 @@ def main [
 
   let t = ($target | default "both")
   let repo = (mj-repo-dir)
+
+  # Clean up stale processes
+  match $t {
+    "api" => { kill-port 4000 }
+    "explorer" => { kill-port 4200 }
+    "both" => { kill-port 4000; kill-port 4200 }
+    _ => {}
+  }
 
   match $t {
     "api" => {

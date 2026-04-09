@@ -59,6 +59,17 @@ if [ -n "$STAGED_SQL" ] && [ -f "$LINTER_DIR/dist/sql/lint-migrations.js" ]; the
   done
 fi
 
+# ── Changeset reminder (warn only, never blocks) ────────────────────
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "next" ] && [ "$CURRENT_BRANCH" != "main" ]; then
+  CHANGESET_COUNT=$(find .changeset -name '*.md' ! -name 'README.md' 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$CHANGESET_COUNT" = "0" ]; then
+    echo ""
+    echo -e "\033[1;33m⚠ No changeset found.\033[0m Remember to run \033[1mnpm run change\033[0m before your PR."
+    echo "  (This is a reminder — your commit will still go through.)"
+  fi
+fi
+
 if [ $EXIT_CODE -ne 0 ]; then
   echo ""
   echo "Pre-commit lint found issues. Fix errors above, then re-commit."

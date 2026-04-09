@@ -50,7 +50,8 @@
               mj-status()   { nu "$_MJ_SCRIPT_DIR/nu/status.nu" "$@" || true; }
               mj-help()     { nu "$_MJ_SCRIPT_DIR/nu/help.nu" "$@" || true; }
               mj-snapshot() { nu "$_MJ_SCRIPT_DIR/nu/snapshot.nu" "$@" || true; }
-              export -f mj-refresh mj-nuke mj-catch-up mj-review mj-start mj-status mj-help mj-snapshot
+              mj-migrate()  { nu "$_MJ_SCRIPT_DIR/nu/migrate.nu" "$@" || true; }
+              export -f mj-refresh mj-nuke mj-catch-up mj-review mj-start mj-status mj-help mj-snapshot mj-migrate
 
               source "$_MJ_SCRIPT_DIR/bootstrap.sh"
             '';
