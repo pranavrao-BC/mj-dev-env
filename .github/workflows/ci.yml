@@ -84,6 +84,7 @@ jobs:
       # ── SQL Server ────────────────────────────────────────
       - name: Start SQL Server
         run: |
+          docker rm -f mj-sqlserver 2>/dev/null || true
           docker run \
             -e "ACCEPT_EULA=Y" \
             -e "MSSQL_SA_PASSWORD=MJDevSA@Strong1!" \
