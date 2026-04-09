@@ -52,11 +52,18 @@ jobs:
     env:
       SQLCMDTRUST_SERVER_CERTIFICATE: 1
       GH_TOKEN: ${{ github.token }}
+      MJ_CLI_PREFIX: ${{ github.workspace }}/.mj-cli
 
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      # MJ CLI prefix on PATH for all subsequent steps
+      - name: Setup CLI path
+        run: |
+          mkdir -p "$MJ_CLI_PREFIX/bin"
+          echo "$MJ_CLI_PREFIX/bin" >> "$GITHUB_PATH"
 
       # ── Dev environment validation ────────────────────────
       - name: Build devShell and verify tools
@@ -117,7 +124,7 @@ jobs:
       - name: Setup MJ environment
         run: |
           cp templates/.env.template /tmp/mj/.env
-          nix develop --command npm install -g @memberjunction/cli
+          nix develop --command npm install -g @memberjunction/cli --prefix "$MJ_CLI_PREFIX"
 
       - name: Migrate
         run: nix develop --command bash -c 'cd /tmp/mj && mj migrate'
