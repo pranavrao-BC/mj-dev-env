@@ -3,11 +3,32 @@
 # refresh, catchup, and review. Eliminates copy-pasting across commands.
 use config.nu *
 use ui.nu *
+use git.nu [git-branch]
+
+# Key packages that codegen imports from. If any has a broken dist/,
+# codegen crashes before we even get to the build step.
+def codegen-deps [] : nothing -> list<string> {
+  [
+    "MJCoreEntities"
+    "Actions/CoreActions"
+  ]
+}
+
+# Check if key packages have valid dist/ directories.
+# Returns true if healthy, false if any are missing/broken.
+export def dist-healthy? [] : nothing -> bool {
+  let repo = (mj-repo-dir)
+  (codegen-deps) | all { |pkg|
+    ($repo | path join "packages" $pkg "dist" | path exists)
+  }
+}
 
 export def sync-pipeline [--skip-build, --clean] {
   install-deps
   run-migrations
+  ensure-dist-for-codegen
   run-codegen
+  sync-generated
   if $skip_build {
     warn "Skipping build (--skip-build). Run: mjd fix"
   } else if $clean {
@@ -43,6 +64,28 @@ export def run-migrations [] {
   info "Migrations complete"
 }
 
+# If dist/ is broken from a prior failed build, codegen will crash
+# because it imports from compiled packages. Rebuild the critical ones.
+export def ensure-dist-for-codegen [] {
+  if (dist-healthy?) { return }
+
+  warn "Stale dist/ detected — rebuilding key packages before codegen..."
+  cd (mj-repo-dir)
+  let result = (^npm run build:generated | complete)
+  if $result.exit_code != 0 {
+    # build:generated may not exist on all branches — fall back to targeted rebuild
+    (codegen-deps) | each { |pkg|
+      cd (mj-repo-dir)
+      let pkg_dir = (mj-repo-dir) | path join "packages" $pkg
+      if ($pkg_dir | path exists) {
+        cd $pkg_dir
+        ^npm run build out+err> /dev/null
+      }
+    }
+  }
+  info "Key packages rebuilt"
+}
+
 export def run-codegen [] {
   step "Running codegen..."
   cd (mj-repo-dir)
@@ -54,6 +97,16 @@ export def run-codegen [] {
     exit 1
   }
   info "Codegen complete"
+}
+
+export def sync-generated [] {
+  let branch = (git-branch)
+  if $branch == "next" or $branch == "main" { return }
+
+  let result = (^git checkout next -- "packages/*/src/generated/*" | complete)
+  if $result.exit_code == 0 {
+    info "Synced generated files from next"
+  }
 }
 
 export def run-build [] {
