@@ -1,5 +1,5 @@
 #!/usr/bin/env nu
-# mj fix — re-run the full pipeline without touching git.
+# mjd fix — re-run the full pipeline without touching git.
 # The "my environment is broken, make it work" button.
 use ../lib *
 
@@ -30,9 +30,5 @@ def main [--skip-build(-s), --clean(-c)] {
   # The full pipeline, no questions asked
   sync-pipeline --skip-build=$skip_build --clean=$clean
 
-  let elapsed_str = ""  # sync-pipeline prints its own timing per step
-  print ""
-  print $"  (ansi green_bold)Environment fixed(ansi reset)"
-  print "  Run: mjd start"
-  print ""
+  success-box ["Environment fixed" "Run mjd start to begin"]
 }

@@ -30,7 +30,8 @@ export def sync-pipeline [--skip-build, --clean] {
   run-codegen
   sync-generated
   if $skip_build {
-    warn "Skipping build (--skip-build). Run: mjd fix"
+    warn "Skipping build (--skip-build)"
+    hint "Run mjd fix when ready"
   } else if $clean {
     run-clean-build
   } else {
@@ -39,13 +40,13 @@ export def sync-pipeline [--skip-build, --clean] {
 }
 
 export def install-deps [] {
-  step "Installing dependencies (npm ci)..."
+  step "Installing dependencies..."
   cd (mj-repo-dir)
   let result = (^npm ci | complete)
   if $result.exit_code != 0 {
     err "npm ci failed"
-    print $result.stdout
     print $result.stderr
+    hint "Try: rm -rf node_modules && npm ci"
     exit 1
   }
   info "Dependencies installed"
@@ -59,6 +60,7 @@ export def run-migrations [] {
     err "Migration failed"
     print $result.stdout
     print $result.stderr
+    hint "Run mjd repair to fix partially-applied migrations"
     exit 1
   }
   info "Migrations complete"
@@ -69,7 +71,7 @@ export def run-migrations [] {
 export def ensure-dist-for-codegen [] {
   if (dist-healthy?) { return }
 
-  warn "Stale dist/ detected — rebuilding key packages before codegen..."
+  warn "Stale dist/ detected — rebuilding key packages..."
   cd (mj-repo-dir)
   let result = (^npm run build:generated | complete)
   if $result.exit_code != 0 {
@@ -94,6 +96,7 @@ export def run-codegen [] {
     err "Codegen failed"
     print $result.stdout
     print $result.stderr
+    hint "Try mjd fix --clean to wipe dist/ and rebuild"
     exit 1
   }
   info "Codegen complete"
@@ -110,13 +113,14 @@ export def sync-generated [] {
 }
 
 export def run-build [] {
-  step "Building (this takes a few minutes with turbo cache)..."
+  step "Building..."
   cd (mj-repo-dir)
   let result = (^npm run build | complete)
   if $result.exit_code != 0 {
     err "Build failed"
     print $result.stdout
     print $result.stderr
+    hint "Try mjd fix --clean to wipe dist/ and rebuild"
     exit 1
   }
   info "Build complete"

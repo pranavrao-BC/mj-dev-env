@@ -7,7 +7,7 @@ def main [--skip-build(-s)] {
   require-repo $state
 
   if $state.git.branch in ["next" "main"] {
-    err $"You're on ($state.git.branch) — use mjd refresh instead."
+    err $"You're on ($state.git.branch) — use mjd refresh instead"
     exit 1
   }
 
@@ -23,9 +23,9 @@ def main [--skip-build(-s)] {
 
   ^rm -f (bootstrap-marker)
 
-  print ""
-  print $"  (ansi green_bold)Catch Up Complete(ansi reset)"
-  print $"  Branch:  ($state.git.branch) \(now includes latest next\)"
-  print "  Start:   mjd start"
-  print ""
+  success-box [
+    $"Catch up complete"
+    $"Branch: ($state.git.branch) (includes latest next)"
+    "Run mjd start to begin"
+  ]
 }

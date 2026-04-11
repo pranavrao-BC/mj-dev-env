@@ -54,14 +54,15 @@ def main [target?: string] {
 
   let t = $target | default "both"
 
-  # Pre-flight: ensure SQL Server is reachable
+  # Pre-flight checks
   if $state.docker != "running" {
-    err "Docker is not running. Start Docker Desktop first."
+    err "Docker is not running"
+    hint "Start Docker Desktop, then re-enter the shell"
     exit 1
   }
 
   if $state.container != "running" {
-    step "SQL Server container not running — starting..."
+    step "Starting SQL Server container..."
     ensure-container-running
     if not (wait-for-sql 15) {
       err "SQL Server not ready"
@@ -70,17 +71,20 @@ def main [target?: string] {
   }
 
   if not $state.database.exists {
-    err "Database MJ_Local doesn't exist. Run: mjd bootstrap"
+    err "Database MJ_Local doesn't exist"
+    hint "Run mjd bootstrap to set up"
     exit 1
   }
 
   if not $state.build.built {
-    warn "Project doesn't appear to be built. Run: mjd fix"
+    warn "Project hasn't been built"
+    hint "Run mjd fix before starting"
     print ""
   }
 
   if $state.env_file == "template" {
-    warn ".env needs configuration (WEB_CLIENT_ID, TENANT_ID). Edit: .env"
+    warn ".env needs Azure AD credentials"
+    hint "Edit WEB_CLIENT_ID and TENANT_ID in .env"
     print ""
   }
 

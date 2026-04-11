@@ -124,14 +124,11 @@ export def restore-snapshot [name: string] {
 export def list-snapshots [] {
   mkdir (snapshot-dir)
 
-  print ""
-  print $"  (ansi cyan_bold)MJ Snapshots(ansi reset)"
-  print $"  (ansi attr_dimmed)──────────────────────────────────────────────(ansi reset)"
+  banner "MJ Snapshots"
 
   let snaps = (glob ($"(snapshot-dir)/*.bak"))
   if ($snaps | is-empty) {
-    print $"  (ansi attr_dimmed)No snapshots yet. Create one with:(ansi reset)"
-    print $"  (ansi cyan)mjd snapshot save <name>(ansi reset)"
+    hint "No snapshots yet. Run mjd snapshot save <name>"
   } else {
     for f in $snaps {
       let name = ($f | path basename | str replace ".bak" "")

@@ -84,8 +84,8 @@ def main [--dry-run(-n)] {
   run-manifests
   run-build
 
-  print ""
-  print $"  (ansi green_bold)Repair Complete(ansi reset)"
-  print $"  Fixed ($missing | length) table\(s\). System should be working now."
-  print ""
+  success-box [
+    $"Repair complete — fixed ($missing | length) table\(s\)"
+    "Run mjd start to verify"
+  ]
 }

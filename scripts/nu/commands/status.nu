@@ -1,96 +1,101 @@
 #!/usr/bin/env nu
 use ../lib *
 
+# Status label — aligned key-value with colored icon
+def label [key: string, value: string, --ok, --warn, --err] {
+  let icon = if $ok { $"(ansi green)✓(ansi reset)" } else if $warn { $"(ansi yellow)⚠(ansi reset)" } else { $"(ansi red)✗(ansi reset)" }
+  let padded_key = $key | fill -w 30
+  print $"  ($icon) ($padded_key)(ansi attr_dimmed)($value)(ansi reset)"
+}
+
 def main [] {
   let state = (read-state)
 
-  print ""
-  print $"  (ansi cyan_bold)MJ Dev Environment(ansi reset)  (ansi attr_dimmed)status(ansi reset)"
-  print $"  (ansi attr_dimmed)──────────────────────────────────────────────(ansi reset)"
+  banner "MJ status"
   print ""
 
   # Docker
   match $state.docker {
-    "running" => { info $"Docker                         (ansi attr_dimmed)running(ansi reset)" }
-    "not-running" => { err $"Docker                         (ansi attr_dimmed)not running(ansi reset)" }
-    "not-installed" => { err $"Docker                         (ansi attr_dimmed)not installed(ansi reset)" }
+    "running" => { label --ok "Docker" "running" }
+    "not-running" => { label --err "Docker" "not running" }
+    "not-installed" => { label --err "Docker" "not installed" }
   }
 
-  # SQL Server container
+  # SQL Server
   match $state.container {
     "running" => {
       let started = try {
         ^docker inspect -f '{{.State.StartedAt}}' $CONTAINER_NAME | complete | get stdout | str trim | split row "T" | first
       } catch { "unknown" }
-      info $"SQL Server                     (ansi attr_dimmed)running since ($started)(ansi reset)"
+      label --ok "SQL Server" $"running since ($started)"
     }
     "exited" | "created" | "paused" => {
-      warn $"SQL Server                     (ansi attr_dimmed)($state.container)(ansi reset)"
+      label --warn "SQL Server" $state.container
     }
     "missing" | "unreachable" => {
-      err $"SQL Server                     (ansi attr_dimmed)($state.container)(ansi reset)"
+      label --err "SQL Server" $state.container
     }
     _ => {
-      warn $"SQL Server                     (ansi attr_dimmed)($state.container)(ansi reset)"
+      label --warn "SQL Server" $state.container
     }
   }
 
   # Database
   if $state.database.exists {
-    info $"Database MJ_Local              (ansi attr_dimmed)($state.database.tables) tables(ansi reset)"
+    label --ok "Database" $"MJ_Local · ($state.database.tables) tables"
   } else {
-    err $"Database MJ_Local              (ansi attr_dimmed)missing(ansi reset)"
+    label --err "Database" "missing"
   }
 
   print ""
 
   # MJ CLI
   if $state.mj_cli.installed {
-    info $"MJ CLI                         (ansi attr_dimmed)v($state.mj_cli.version)(ansi reset)"
+    label --ok "MJ CLI" $"v($state.mj_cli.version)"
   } else {
-    warn $"MJ CLI                         (ansi attr_dimmed)not installed(ansi reset)"
+    label --warn "MJ CLI" "not installed"
   }
 
   # Node
   let node_ver = (^node --version | complete | get stdout | str trim)
-  info $"Node                           (ansi attr_dimmed)($node_ver)(ansi reset)"
+  label --ok "Node" $node_ver
 
-  # Repo
+  # Branch
   if $state.repo_is_git {
     let dirty_marker = if $state.git.dirty { $" (ansi yellow)*(ansi reset)" } else { "" }
-    info $"Branch                         (ansi attr_dimmed)($state.git.branch)(ansi reset)($dirty_marker)"
+    label --ok "Branch" $"($state.git.branch)($dirty_marker)"
   } else if $state.repo_exists {
-    warn $"MJ repo                        (ansi attr_dimmed)not a git repo(ansi reset)"
+    label --warn "MJ repo" "not a git repo"
   } else {
-    err $"MJ repo                        (ansi attr_dimmed)not found(ansi reset)"
+    label --err "MJ repo" "not found"
   }
 
   # .env
   match $state.env_file {
-    "configured" => { info $".env                           (ansi attr_dimmed)configured(ansi reset)" }
-    "template" => { warn $".env                           (ansi attr_dimmed)needs Azure AD config(ansi reset)" }
-    "missing" => { err $".env                           (ansi attr_dimmed)missing(ansi reset)" }
+    "configured" => { label --ok ".env" "configured" }
+    "template" => { label --warn ".env" "needs Azure AD config" }
+    "missing" => { label --err ".env" "missing" }
   }
 
   # node_modules
   if $state.dependencies.installed {
-    info $"node_modules                   (ansi attr_dimmed)installed(ansi reset)"
+    label --ok "node_modules" "installed"
   } else {
-    warn $"node_modules                   (ansi attr_dimmed)missing — run npm ci(ansi reset)"
+    label --warn "node_modules" "missing"
   }
 
   # Build
   if $state.build.built {
-    info $"Build                          (ansi attr_dimmed)built(ansi reset)"
+    label --ok "Build" "built"
   } else {
-    warn $"Build                          (ansi attr_dimmed)not built — run mjd fix(ansi reset)"
+    label --warn "Build" "not built"
   }
 
-  # Pre-commit hook
+  # Hook
   if $state.git.hook {
-    info $"Pre-commit hook                (ansi attr_dimmed)active(ansi reset)"
+    label --ok "Pre-commit hook" "active"
   } else if $state.repo_is_git {
-    print $"  (ansi attr_dimmed)·(ansi reset) Pre-commit hook                (ansi attr_dimmed)not installed(ansi reset)"
+    print $"  (ansi attr_dimmed)· Pre-commit hook              not installed(ansi reset)"
   }
 
   print ""

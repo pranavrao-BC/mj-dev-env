@@ -14,7 +14,7 @@ def main [
     cd $state.repo_dir
 
     if not ($breadcrumb | path exists) {
-      err "No review in progress."
+      err "No review in progress"
       exit 1
     }
     let prev = (open $breadcrumb --raw | str trim)
@@ -24,6 +24,7 @@ def main [
     step "Reinstalling deps..."
     ^npm ci out+err> /dev/null
     info $"Back on ($prev)"
+    hint "If the review branch had different migrations, run: mjd fix"
     return
   }
 
@@ -46,7 +47,8 @@ def main [
   # Check for merge conflicts
   let unmerged = (^git diff --name-only --diff-filter=U | complete | get stdout | str trim)
   if ($unmerged | is-not-empty) {
-    err "You have unresolved merge conflicts. Resolve them first."
+    err "You have unresolved merge conflicts"
+    hint "Resolve them before starting a review"
     rm -f $breadcrumb
     exit 1
   }
@@ -54,15 +56,14 @@ def main [
   # Stash if dirty (force — no prompt, always stash for review)
   stash-if-dirty --force
 
-  print ""
-  print $"  (ansi cyan_bold)MJ Review(ansi reset)"
-  print ""
+  banner "MJ Review"
 
   # Check out the PR
   let is_pr_number = ($target =~ '^\d+$')
   if $is_pr_number {
     if (which gh | is-empty) {
-      err "gh CLI not found. Install: brew install gh"
+      err "gh CLI not found"
+      hint "Install: brew install gh"
       exit 1
     }
     step $"Checking out PR #($target)..."
@@ -85,10 +86,9 @@ def main [
   # Standard pipeline
   sync-pipeline --skip-build=$skip_build
 
-  print ""
-  print $"  (ansi green_bold)Ready to Review(ansi reset)"
-  print $"  Branch:  (git-branch)"
-  print "  Start:   mjd start"
-  print "  Done:    mjd review --done"
-  print ""
+  success-box [
+    "Ready to review"
+    $"Branch: (git-branch)"
+    "mjd start        mjd review --done"
+  ]
 }

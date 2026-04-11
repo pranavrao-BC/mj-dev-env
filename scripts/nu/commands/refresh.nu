@@ -12,13 +12,8 @@ def main [
   let state = (read-state)
   require-repo $state
 
-  print ""
-  if $fresh {
-    print $"  (ansi cyan_bold)MJ Fresh Refresh(ansi reset)"
-  } else {
-    print $"  (ansi cyan_bold)MJ Refresh(ansi reset)"
-  }
-  print ""
+  let title = if $fresh { "MJ Fresh Refresh" } else { "MJ Refresh" }
+  banner $title
 
   cd $state.repo_dir
 
@@ -34,7 +29,7 @@ def main [
     if $rebase {
       git-rebase-next
     } else {
-      info $"Refreshing on current branch: ($current_branch)"
+      info $"Refreshing on ($current_branch)"
     }
   } else {
     git-switch-to-next
@@ -97,17 +92,17 @@ def main [
   }
 
   # Step 7: Auto-snapshot for quick recovery
-  step "Saving auto-snapshot of known-good DB state..."
+  step "Saving auto-snapshot..."
   auto-snapshot
 
   ^rm -f (bootstrap-marker)
 
   let current = (git-branch)
   let db_status = if $fresh { "fresh install" } else { "migrated to latest" }
-  print ""
-  print $"  (ansi green_bold)Refresh Complete(ansi reset)"
-  print $"  Branch:  ($current)"
-  print $"  DB:      ($db_status)"
-  print "  Start:   mjd start"
-  print ""
+  success-box [
+    $"Refresh complete"
+    $"Branch: ($current)"
+    $"DB: ($db_status)"
+    "Run mjd start to begin"
+  ]
 }

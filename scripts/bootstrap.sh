@@ -17,10 +17,10 @@ if [ -f "$BOOTSTRAP_MARKER" ]; then
   state=$(docker inspect -f '{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null || echo "missing")
   if [ "$state" = "running" ]; then
     echo ""
-    echo -e "  ${CYAN}${BOLD}MJ Dev Environment${NC}  ${DIM}ready${NC}"
+    echo -e "  ${CYAN}${BOLD}MJ${NC}  ${DIM}ready${NC}"
     echo ""
-    echo -e "  ${DIM}Node $(node --version) · SQL Server running · DB ready${NC}"
-    echo -e "  ${DIM}Type ${NC}${CYAN}mjd help${NC}${DIM} to see available commands${NC}"
+    echo -e "  ${DIM}Node $(node --version) · SQL Server · DB ready${NC}"
+    echo -e "  ${CYAN}mjd help${NC}"
     echo ""
     return 0 2>/dev/null || exit 0
   fi
