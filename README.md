@@ -53,51 +53,64 @@ Now the dev shell activates automatically whenever you `cd` in, and deactivates 
 
 ## Commands
 
-All commands are available inside the dev shell. Run any command with `--help` for full usage.
+All commands are available inside the dev shell via the `mjd` CLI.
 
-### `mj-start`
+### `mjd start`
 
-Start the API and/or Explorer.
+Start the API and/or Explorer. Runs pre-flight checks — ensures Docker, SQL Server, and the database are all ready before starting services.
 
 ```bash
-mj-start              # both — Ctrl-C stops all
-mj-start api          # just API
-mj-start explorer     # just Explorer
+mjd start              # both — pre-flight check, then start API + Explorer
+mjd start api          # just API
+mjd start explorer     # just Explorer
 ```
 
-### `mj-refresh`
+Health checks confirm both services are responding after startup.
 
-Pull latest code, update deps, migrate, build.
+### `mjd refresh`
+
+Pull latest code, update deps, migrate, build. Branch-aware — stays on feature branches by default.
 
 ```bash
-# Get on latest next
-mj-refresh
+# On next: pull latest, migrate, build
+mjd refresh
 
-# Same but also nuke the DB and start clean
-mj-refresh --fresh
+# On a feature branch: refresh in place (deps, migrate, codegen, build)
+mjd refresh
 
+# On a feature branch: rebase onto latest next first
+mjd refresh --rebase
+
+# Nuke the DB and start clean
+mjd refresh --fresh
+
+# Wipe dist/ and rebuild (fixes stale turbo cache)
+mjd refresh --clean
 
 # Get on latest next + create a feature branch
-mj-refresh my-new-feature
+mjd refresh my-new-feature
 
 # Skip the build step
-mj-refresh --skip-build
+mjd refresh --skip-build
 ```
+
+After a successful refresh, a base snapshot is saved automatically for quick recovery.
 
 **When to use:**
 - You finished a feature/PR and want to start new work
 - You've been away for a while and need to get current
 - Your DB is out of sync and you want a clean slate (`--fresh`)
+- You're on a feature branch and need to rebuild after pulling changes
 
-### `mj-catch-up`
+### `mjd catch-up`
 
 Merge latest `next` into your current branch without leaving it.
 
 ```bash
-mj-catch-up
+mjd catch-up
 
 # Skip the build step
-mj-catch-up --skip-build
+mjd catch-up --skip-build
 ```
 
 **When to use:**
@@ -107,12 +120,27 @@ mj-catch-up --skip-build
 
 If there are merge conflicts, it stops and tells you. Your uncommitted changes get stashed and restored automatically.
 
-### `mj-nuke`
+### `mjd fix`
+
+Re-run the full pipeline without touching git. The "my environment is broken, make it work" button.
+
+```bash
+mjd fix              # npm ci → migrate → codegen → build
+mjd fix --clean      # wipe dist/ then rebuild (fixes stale turbo cache)
+mjd fix --skip-build # skip the build
+```
+
+**When to use:**
+- Something is broken and you just want to re-run everything
+- You're on a feature branch and don't want git operations
+- After manually fixing a DB issue, to ensure codegen/build are in sync
+
+### `mjd nuke`
 
 Drop the database and rebuild from scratch.
 
 ```bash
-mj-nuke
+mjd nuke
 ```
 
 **When to use:**
@@ -122,22 +150,22 @@ mj-nuke
 
 Asks you to type "nuke" to confirm. Your `.env` and code are not affected.
 
-### `mj-review`
+### `mjd review`
 
 Check out a PR, install deps, migrate, build — ready to test.
 
 ```bash
 # By PR number
-mj-review 142
+mjd review 142
 
 # By branch name
-mj-review ian-file-artifact-pr-fixes
+mjd review ian-file-artifact-pr-fixes
 
 # Skip the build
-mj-review 142 --skip-build
+mjd review 142 --skip-build
 
 # Done reviewing, go back to your branch
-mj-review --done
+mjd review --done
 ```
 
 **When to use:**
@@ -146,36 +174,62 @@ mj-review --done
 
 Automatically stashes your uncommitted changes and restores them when you `--done`.
 
-### `mj-snapshot`
+### `mjd snapshot`
 
 Save and restore database snapshots. Turns 15-minute migrations into 30-second restores.
 
 ```bash
-mj-snapshot save clean-5.24       # save current DB state
-mj-snapshot list                   # see available snapshots
-mj-snapshot restore clean-5.24    # restore + catch up migrations
-mj-snapshot delete clean-5.24     # remove a snapshot
+mjd snapshot save clean-5.24       # save current DB state
+mjd snapshot list                   # see available snapshots (with branch info)
+mjd snapshot restore clean-5.24    # restore + catch up migrations
+mjd snapshot delete clean-5.24     # remove a snapshot
 ```
+
+Snapshots include metadata (branch, table count, timestamp). Restoring a snapshot from a different branch warns you before proceeding.
 
 **When to use:**
 - After a clean setup, save a baseline so you never wait for full migrations again
 - Before risky DB changes, save a checkpoint
 - Share a `.bak` file (`~/.mj-snapshots/`) with a teammate for instant setup
 
-### `mj-status`
+### `mjd migrate`
+
+Run migrations, codegen, and manifest generation.
+
+```bash
+mjd migrate
+```
+
+Includes validation gates: verifies migration integrity (detects partially-applied migrations) and smoke-tests codegen output before proceeding.
+
+### `mjd repair`
+
+Detect and fix partially-applied migrations. Flyway + SQL Server can mark migrations as successful when individual statements silently failed.
+
+```bash
+mjd repair            # scan and fix
+mjd repair --dry-run  # show what's broken without fixing
+```
+
+**When to use:**
+- Build fails with missing entity types after migrations
+- `mjd migrate` reports missing tables
+- Codegen output doesn't compile
+
+### `mjd status`
 
 Quick health check — is everything running?
 
 ```bash
-mj-status
+mjd status
 ```
 
-### `mj-help`
+### `mjd help`
 
 List all available commands in the terminal.
 
 ```bash
-mj-help
+mjd help
 ```
 
 ## Workflows
@@ -193,9 +247,16 @@ nix develop
 
 ```bash
 nix develop
-mj-refresh my-feature-name
-cd ~/Projects/MJ/MJ
-npm run start:api
+mjd refresh my-feature-name
+mjd start
+```
+
+### Switching between branches
+
+```bash
+git checkout other-feature
+mjd start
+# Pre-flight checks: ensures Docker, SQL Server, DB are ready
 ```
 
 ### Catching up mid-feature
@@ -203,15 +264,36 @@ npm run start:api
 ```bash
 nix develop
 cd ~/Projects/MJ/MJ
-mj-catch-up
+mjd catch-up
+```
+
+### Something broke after migrations
+
+```bash
+mjd repair            # fixes partially-applied migrations
+mjd repair --dry-run  # see what's wrong first
 ```
 
 ### Everything is broken, start over
 
 ```bash
 nix develop
-mj-refresh --fresh
+mjd refresh --fresh
 ```
+
+## How it works
+
+**Pre-flight checks:** `mjd start` verifies Docker is running, the SQL Server container is up, and the database exists before starting services. If the container is stopped, it starts it automatically.
+
+**Validation pipeline:** `mjd migrate` includes automatic checks:
+1. **Post-migrate**: verifies all tables that migrations claim to CREATE actually exist (catches Flyway + SQL Server silent partial failures)
+2. **Post-codegen**: runs `tsc --noEmit` on core-entities to catch codegen/schema mismatches before the full build
+
+If validation fails, `mjd repair` can detect and fix partially-applied migrations automatically.
+
+**Auto-snapshot:** After a successful `mjd refresh`, the DB is automatically snapshotted. Restore with `mjd snapshot restore auto-refresh` instead of a 15-minute full migration.
+
+**Shared state model:** All commands read environment state (Docker, DB, git, deps) through a single `read-state` function. This ensures consistent health checks across commands and eliminates duplicated logic.
 
 ## Config
 
@@ -234,32 +316,45 @@ scripts/
   install-hooks.sh      # Git pre-commit hook installer (bash — hooks must be bash)
   sql/init-db.sql       # Idempotent DB/login/user creation
   nu/
-    common.nu           # Shared module: config, UI, SQL/Docker helpers
-    bootstrap.nu        # Full 10-phase bootstrap
-    refresh.nu          # mj-refresh
-    catchup.nu          # mj-catch-up
-    nuke.nu             # mj-nuke
-    snapshot.nu          # mj-snapshot (save/restore/list/delete)
-    review.nu           # mj-review
-    start.nu            # mj-start
-    status.nu           # mj-status
-    help.nu             # mj-help
+    lib/
+      mod.nu            # Re-exports all library modules
+      config.nu         # Pure constants and path helpers
+      ui.nu             # Display helpers (info, warn, err, step, banner)
+      sql.nu            # SQL Server operations
+      docker.nu         # Docker operations
+      git.nu            # Git operations (stash, branch, merge)
+      npm.nu            # Node/npm/CLI operations + sync-pipeline
+      state.nu          # Environment state reader (single typed record)
+      snapshot.nu       # Snapshot save/restore + metadata sidecars
+      validate.nu       # Migration/codegen validation gates
+    commands/
+      bootstrap.nu      # Full 10-phase first-time setup
+      start.nu          # Start API/Explorer with pre-flight checks
+      refresh.nu        # Branch-aware update pipeline
+      catchup.nu        # Merge next into current branch
+      fix.nu            # Re-run full pipeline, no git ops
+      review.nu         # PR checkout + setup
+      migrate.nu        # Migrations + validation + codegen
+      repair.nu         # Fix partially-applied migrations
+      nuke.nu           # Drop and rebuild database
+      snapshot.nu       # Snapshot subcommands
+      status.nu         # Health check
+      help.nu           # Command reference
 templates/
   .env.template         # Default env vars for new setups
 ```
 
 Scripts are written in [Nushell](https://www.nushell.sh/) — typed pipelines, structured data, proper error handling. Nushell is installed automatically by the Nix flake; you don't need to install it separately.
 
-The bash shim (`bootstrap.sh`) handles the fast-path shell entry check. Everything else runs in Nushell. The old `.sh` scripts are kept as reference but are no longer used.
+The bash shim (`bootstrap.sh`) handles the fast-path shell entry check. Everything else runs in Nushell.
 
 ## Notes
 
 - Your `.env` is created once and never overwritten. API keys, Azure AD creds, everything persists across shell entries, refreshes, and nukes.
 - The MJ CLI installs to `~/.mj-cli/` (not global npm) to avoid conflicting with the Nix shell.
 - SQL Server runs via Docker on port 1433. The container is named `mj-sqlserver`.
-- DB snapshots are stored in `~/.mj-snapshots/` and mounted into the container.
+- DB snapshots are stored in `~/.mj-snapshots/` and mounted into the container. Each snapshot includes a `.json` metadata file with branch, table count, and timestamp.
 - If bootstrap detects a container with the wrong password (e.g. from a previous manual setup), it replaces it automatically.
-- All commands support `--help` with typed argument descriptions (auto-generated by Nushell).
 
 ## DB Credentials (local dev)
 

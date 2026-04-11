@@ -1,17 +1,17 @@
 #!/usr/bin/env nu
-use common.nu *
+use ../lib *
 
 def main [
-  target?: string       # PR number or branch name
-  --done                # Return to previous branch
-  --skip-build(-s)      # Skip npm run build
+  target?: string
+  --done
+  --skip-build(-s)
 ] {
-  let breadcrumb = ((flake-root) | path join ".review-previous-branch")
+  let breadcrumb = (flake-root) | path join ".review-previous-branch"
 
   if $done {
-    require-repo
-    let repo = (mj-repo-dir)
-    cd $repo
+    let state = (read-state)
+    require-repo $state
+    cd $state.repo_dir
 
     if not ($breadcrumb | path exists) {
       err "No review in progress."
@@ -28,18 +28,17 @@ def main [
   }
 
   if $target == null {
-    err "Usage: mj-review <pr-number|branch>"
+    err "Usage: mjd review <pr-number|branch>"
     exit 1
   }
 
   require-docker
-  require-repo
-
-  let repo = (mj-repo-dir)
-  cd $repo
+  let state = (read-state)
+  require-repo $state
+  cd $state.repo_dir
 
   # Save current branch
-  let current = (^git branch --show-current | complete | get stdout | str trim)
+  let current = (git-branch)
   if ($current | is-not-empty) {
     $current | save -f $breadcrumb
   }
@@ -52,13 +51,8 @@ def main [
     exit 1
   }
 
-  # Stash if dirty
-  let dirty = (^git status --porcelain | complete | get stdout | str trim)
-  if ($dirty | is-not-empty) {
-    let stash_name = $"mj-review auto-stash (date now | format date '%Y%m%d-%H%M%S')"
-    ^git stash push -m $stash_name
-    info "Stashed your uncommitted changes"
-  }
+  # Stash if dirty (force — no prompt, always stash for review)
+  stash-if-dirty --force
 
   print ""
   print $"  (ansi cyan_bold)MJ Review(ansi reset)"
@@ -88,27 +82,13 @@ def main [
     info $"On branch ($target)"
   }
 
-  # Deps + migrate + build
-  step "Installing dependencies..."
-  ^npm ci
-  info "Dependencies installed"
-
-  step "Running migrations..."
-  ^mj migrate
-  info "Migrations complete"
-
-  if $skip_build {
-    warn "Skipping build (--skip-build)"
-  } else {
-    step "Building..."
-    ^npm run build
-    info "Build complete"
-  }
+  # Standard pipeline
+  sync-pipeline --skip-build=$skip_build
 
   print ""
   print $"  (ansi green_bold)Ready to Review(ansi reset)"
-  print $"  Branch:  (^git branch --show-current | complete | get stdout | str trim)"
-  print "  Start:   npm run start:api"
-  print "  Done:    mj-review --done"
+  print $"  Branch:  (git-branch)"
+  print "  Start:   mjd start"
+  print "  Done:    mjd review --done"
   print ""
 }

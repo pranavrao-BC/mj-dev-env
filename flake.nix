@@ -40,18 +40,20 @@
               # MJ CLI installed to ~/.mj-cli to avoid conflicting with Nix store
               export PATH="$HOME/.mj-cli/bin:$PATH"
 
-              # Register commands — "|| true" ensures a script failure/abort
+              # Single CLI entry point — "|| true" ensures a script failure/abort
               # never kills the interactive shell
-              mj-refresh()  { nu "$_MJ_SCRIPT_DIR/nu/refresh.nu" "$@" || true; }
-              mj-nuke()     { nu "$_MJ_SCRIPT_DIR/nu/nuke.nu" "$@" || true; }
-              mj-catch-up() { nu "$_MJ_SCRIPT_DIR/nu/catchup.nu" "$@" || true; }
-              mj-review()   { nu "$_MJ_SCRIPT_DIR/nu/review.nu" "$@" || true; }
-              mj-start()    { nu "$_MJ_SCRIPT_DIR/nu/start.nu" "$@" || true; }
-              mj-status()   { nu "$_MJ_SCRIPT_DIR/nu/status.nu" "$@" || true; }
-              mj-help()     { nu "$_MJ_SCRIPT_DIR/nu/help.nu" "$@" || true; }
-              mj-snapshot() { nu "$_MJ_SCRIPT_DIR/nu/snapshot.nu" "$@" || true; }
-              mj-migrate()  { nu "$_MJ_SCRIPT_DIR/nu/migrate.nu" "$@" || true; }
-              export -f mj-refresh mj-nuke mj-catch-up mj-review mj-start mj-status mj-help mj-snapshot mj-migrate
+              mjd() {
+                local cmd="''${1:-help}"
+                local script="$MJ_FLAKE_ROOT/scripts/nu/commands/''${cmd}.nu"
+                if [ ! -f "$script" ]; then
+                  echo "  Unknown command: $cmd"
+                  nu "$MJ_FLAKE_ROOT/scripts/nu/commands/help.nu"
+                  return 1
+                fi
+                shift 2>/dev/null
+                nu "$script" "$@" || true
+              }
+              export -f mjd
 
               source "$_MJ_SCRIPT_DIR/bootstrap.sh"
             '';

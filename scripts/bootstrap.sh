@@ -20,11 +20,11 @@ if [ -f "$BOOTSTRAP_MARKER" ]; then
     echo -e "  ${CYAN}${BOLD}MJ Dev Environment${NC}  ${DIM}ready${NC}"
     echo ""
     echo -e "  ${DIM}Node $(node --version) · SQL Server running · DB ready${NC}"
-    echo -e "  ${DIM}Type ${NC}${CYAN}mj-help${NC}${DIM} to see available commands${NC}"
+    echo -e "  ${DIM}Type ${NC}${CYAN}mjd help${NC}${DIM} to see available commands${NC}"
     echo ""
     return 0 2>/dev/null || exit 0
   fi
 fi
 
 # ── Full bootstrap (Nushell) ─────────────────────────────────────────
-nu "$SCRIPT_DIR/nu/bootstrap.nu"
+nu "$SCRIPT_DIR/nu/commands/bootstrap.nu"

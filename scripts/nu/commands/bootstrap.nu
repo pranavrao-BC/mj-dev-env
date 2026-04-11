@@ -1,6 +1,6 @@
 #!/usr/bin/env nu
-# Full bootstrap — called by bootstrap.sh when the fast path misses.
-use common.nu *
+# Full bootstrap — called by bootstrap.sh when the environment isn't ready.
+use ../lib *
 
 def main [] {
   let start = (date now)
@@ -8,7 +8,9 @@ def main [] {
   banner "MJ Dev Environment"
   let node_ver = (^node --version | complete | get stdout | str trim)
   let git_ver = (^git --version | complete | get stdout | str trim | split row " " | last)
-  let sqlcmd_ver = try { ^sqlcmd --version | complete | get stdout | lines | first | parse --regex '(\d+\.\d+\.\d+)' | get 0?.capture0? | default "?" } catch { "?" }
+  let sqlcmd_ver = try {
+    ^sqlcmd --version | complete | get stdout | lines | first | parse --regex '(\d+\.\d+\.\d+)' | get 0?.capture0? | default "?"
+  } catch { "?" }
   print $"  (ansi attr_dimmed)Node ($node_ver) · Git ($git_ver) · sqlcmd ($sqlcmd_ver)(ansi reset)"
   print ""
 
@@ -17,20 +19,7 @@ def main [] {
   info "Docker"
 
   # Phase 2: SQL Server container
-  let state = (container-state)
-  match $state {
-    "running" => { info "SQL Server container" }
-    "exited" | "created" | "paused" => {
-      step "Starting SQL Server container..."
-      ^docker start $CONTAINER_NAME out+err> /dev/null
-      info "SQL Server container"
-    }
-    "missing" => { recreate-container }
-    _ => {
-      warn $"Container in unexpected state \(($state)\)"
-      recreate-container
-    }
-  }
+  ensure-container-running
 
   # Phase 3: Wait for SQL Server + handle password mismatch
   if not (wait-for-sql 15) {
@@ -50,20 +39,19 @@ def main [] {
   # Phase 5: .env file
   let repo = (mj-repo-dir)
   if ($repo | path exists) {
-    let env_file = ($repo | path join ".env")
+    let env_file = $repo | path join ".env"
     if ($env_file | path exists) {
       info $".env (ansi attr_dimmed)\(your keys are safe\)(ansi reset)"
     } else {
-      let template = ((flake-root) | path join "templates" ".env.template")
+      let template = (flake-root) | path join "templates" ".env.template"
       cp $template $env_file
       info $"Created .env (ansi attr_dimmed)— edit WEB_CLIENT_ID and TENANT_ID(ansi reset)"
     }
 
     # MJAPI symlink
-    let mjapi_dir = ($repo | path join "packages" "MJAPI")
-    let mjapi_env = ($mjapi_dir | path join ".env")
+    let mjapi_dir = $repo | path join "packages" "MJAPI"
+    let mjapi_env = $mjapi_dir | path join ".env"
     if ($mjapi_dir | path exists) and (not ($mjapi_env | path exists)) {
-      # Create relative symlink
       cd $mjapi_dir
       ^ln -s "../../.env" ".env"
       info "MJAPI .env symlink"
@@ -74,13 +62,10 @@ def main [] {
   }
 
   # Phase 6: MJ CLI
-  let cli_path = ((cli-prefix) | path join "bin" "mj")
-  if (which mj | is-not-empty) or ($cli_path | path exists) {
+  if (which mj | is-not-empty) or ((cli-prefix) | path join "bin" "mj" | path exists) {
     info "MJ CLI"
   } else {
-    step "Installing MJ CLI..."
-    ^npm install --global @memberjunction/cli --prefix (cli-prefix) out+err> /dev/null
-    info "MJ CLI installed"
+    install-cli
   }
 
   # Phase 7: Migrations (only on first-ever setup)
@@ -98,21 +83,13 @@ def main [] {
 
   # Phase 8: Demo data (interactive, first time only)
   if ($repo | path exists) {
-    let demo_dir = ($repo | path join "Demos" "AssociationDB")
+    let demo_dir = $repo | path join "Demos" "AssociationDB"
     if ($demo_dir | path exists) {
       let has_demo = try {
         sql-query "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'AssociationDemo') THEN 'yes' ELSE 'no' END"
       } catch { "no" }
       if $has_demo != "yes" {
-        print ""
-        let answer = (input $"  (ansi cyan)?(ansi reset) Install Association demo data? (ansi attr_dimmed)\(y/N\)(ansi reset) ")
-        if ($answer | str downcase) == "y" {
-          $"DB_SERVER=localhost\nDB_NAME=MJ_Local\nDB_USER=($CODEGEN_USER)\nDB_PASSWORD=($CODEGEN_PASS)\n" | save -f ($demo_dir | path join ".env")
-          step "Installing demo data..."
-          cd $demo_dir
-          ^bash ./install.sh out+err> /dev/null
-          info "Demo data installed"
-        }
+        install-demo-data
       }
     }
   }
@@ -128,7 +105,7 @@ def main [] {
   # Phase 10: Git hooks — delegate to bash script
   if ($repo | path join ".git" | path exists) {
     let hook_result = (^bash ((script-dir) | path join "install-hooks.sh") | complete)
-    let hook_file = ($repo | path join ".git" "hooks" "pre-commit")
+    let hook_file = $repo | path join ".git" "hooks" "pre-commit"
     if ($hook_file | path exists) {
       let hook_content = (open $hook_file --raw)
       if ($hook_content | str contains "mj-dev-env") {
@@ -137,13 +114,13 @@ def main [] {
     }
   }
 
-  # Done
-  touch (bootstrap-marker)
+  # Mark bootstrap complete
+  ^touch (bootstrap-marker)
 
   let elapsed = ((date now) - $start | format duration sec)
   success-box [
     $"Ready in ($elapsed)"
     $"DB: localhost:($SQL_PORT) / MJ_Local"
-    "Type mj-help for commands"
+    "Type mjd help for commands"
   ]
 }
