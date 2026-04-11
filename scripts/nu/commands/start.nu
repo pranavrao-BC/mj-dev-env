@@ -79,6 +79,11 @@ def main [target?: string] {
     print ""
   }
 
+  if $state.env_file == "template" {
+    warn ".env needs configuration (WEB_CLIENT_ID, TENANT_ID). Edit: .env"
+    print ""
+  }
+
   cd $state.repo_dir
 
   # Clean up stale processes
